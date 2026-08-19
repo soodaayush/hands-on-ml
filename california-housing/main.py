@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from zlib import crc32
 from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
+from pandas.plotting import scatter_matrix
 
 # This function determines whether a specific data row belongs in the test
 # dataset by checking its unique ID number using the CRC32 hash function
@@ -153,12 +154,119 @@ plt.show()
 # Stratified Sampling - a research method where you split a large group of
 # data into smaller, non-overlapping groups based on shared attributes
 
+
+# A tool that splits data into train/test, keeping income_cat proportions the
+# same in both. Makes 10 versions
+
+# The reason why we want equal proportions is so that the data isn't skewed
+# to a specific income category
+
 splitter = StratifiedShuffleSplit(n_splits=10, test_size=0.2, random_state=42)
-strat_splits = []
+
+strat_splits = [] # Empty list to store the 10 splits
+
 for train_index, test_index in splitter.split(housing_full, housing_full[
     "income_cat"]):
-    strat_train_set_n = housing_full.iloc[train_index]
-    strat_test_set_n = housing_full.iloc[test_index]
-    strat_splits.append([strat_train_set_n, strat_test_set_n])
+    strat_train_set_n = housing_full.iloc[train_index] # Pick out train rows
+    strat_test_set_n = housing_full.iloc[test_index] # Pick out test rows
+    strat_splits.append([strat_train_set_n, strat_test_set_n]) # Save the pair
 
-strat_train_set, start_test_set = strat_splits[0]
+# strat_train_set, strat_test_set = strat_splits[0]
+
+# Easier way of doing the stratified split (compared to the loop above),
+# no loop needed
+strat_train_set, strat_test_set = train_test_split(housing_full,
+                                                   test_size=0.2,
+                                                   stratify=housing_full[
+                                                       "income_cat"],
+                                                   random_state=42)
+
+# This checks the income category proportions in our test set to confirm if
+# the stratified split kept the proportions balanced and matched to the full
+# dataset
+print(strat_test_set["income_cat"].value_counts() / len(strat_test_set))
+
+# Drop the entire income_cat column as we are done utilizing it
+for set_ in (strat_train_set, strat_test_set):
+    set_.drop("income_cat", axis=1, inplace=True)
+
+housing = strat_train_set.copy()
+
+# Displays a scatter plot shaped like the state of California, where each dot
+# denotes a district
+# Setting an alpha of 0.2 allows us to differentiate high density districts
+# and low density districts
+# Radius of each circle represents the district's population and color
+# represents the price
+housing.plot(kind="scatter", x="longitude", y="latitude", grid=True, alpha=0.1)
+plt.show()
+
+# In this plot, you can see where homes are located (position), how populated
+# their area is (dot size), and how expensive homes are there (dot color)
+
+# s - size of each dot
+# label - label each dot in accordance to their population
+# c - controls the color of each dot based on the district's median house value
+# cmap - the color scheme to differentiate ranges of median house values
+# colorbar - shows a colorbar on the side for reference
+# legend - shows legend explaining what each dot size means
+# sharex - a technical fix for a quirk in Pandas/Matplotlib where the x-axis
+# label will sometimes not show up correctly
+
+housing.plot(kind="scatter", x="longitude", y="latitude", grid=True,
+             s=housing["population"] / 100, label="population",
+             c="median_house_value", cmap="jet", colorbar=True, legend=True,
+             sharex=False, figsize=(10, 7))
+
+plt.show()
+
+# These lines calculate the standard correlation coefficient (also called
+# Pearson's r) between every pair of numerical attributes (attribute,
+# median_house_value)
+
+# In simple words, these lines show how much correlation each attribute has
+# with median house prices
+# Example: population doesn't have much correlation while median_income does
+
+# Close to 1 - strong positive correlation
+# Close to -1 - strong negative correlation
+# Close to 0 - no linear correlation
+
+# Positive Example: when median_income increases, median_house_value increases
+# Negative Example: when latitude decreases, median_house_values increases
+
+corr_matrix = housing.corr(numeric_only=True)
+print(corr_matrix["median_house_value"].sort_values(ascending=False))
+
+# This creates a grid of scatter plots showing how every pair of these four
+# features relates to each other, all at once
+
+# Picking out columns to inspect
+attributes = ["median_house_value", "median_income", "total_rooms",
+              "housing_median_age"]
+
+# The function takes the four columns and builds a grid of plots; every
+# attribute plotted against every other attribute, creating a 4x4 grid
+scatter_matrix(housing[attributes], figsize=(12, 8))
+
+plt.show()
+
+# This shows a graph of median income vs. median house value, as it is the
+# most promising attribute of the 16 graphs that has a positive correlation
+housing.plot(kind="scatter", x="median_income", y="median_house_value",
+             alpha=0.1, grid=True)
+
+plt.show()
+
+# Since we would like to determine other attributes such as rooms per house,
+# bedrooms ratio, and people per house, we can calculate those from our
+# available data
+housing["rooms_per_house"] = housing["total_rooms"] / housing["households"]
+housing["bedrooms_ratio"] = housing["total_bedrooms"] / housing["total_rooms"]
+housing["people_per_house"] = housing["population"] / housing["households"]
+
+# We are recalculating the correlations between the attributes and median
+# house prices because we added new columns for the three new attributes above
+
+corr_matrix = housing.corr(numeric_only=True)
+print(corr_matrix["median_house_value"].sort_values(ascending=False))
