@@ -1,5 +1,5 @@
 # Each row in the CSV represents a district in California
-
+from math import gamma
 from pathlib import Path
 
 import pandas as pd
@@ -12,8 +12,10 @@ from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
 from pandas.plotting import scatter_matrix
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import (OrdinalEncoder, OneHotEncoder,
-                                   MinMaxScaler, StandardScaler)
+                                   MinMaxScaler, StandardScaler, FunctionTransformer)
 from sklearn.metrics.pairwise import rbf_kernel
+from sklearn.linear_model import LinearRegression
+from sklearn.compose import TransformedTargetRegressor
 
 imputer = SimpleImputer(strategy="median")
 
@@ -387,3 +389,51 @@ std_scalar = StandardScaler()
 housing_num_std_scaled = std_scalar.fit_transform(housing_num)
 
 age_simil_35 = rbf_kernel(housing[["housing_median_age"]], [[35]], gamma=0.1)
+
+# Scale down values for target values (median_house_value)
+target_scaler = StandardScaler()
+scaled_labels = target_scaler.fit_transform(housing_labels.to_frame())
+
+# Train a plain linear regression model, where we are predicting the scaled
+# labels
+model = LinearRegression()
+model.fit(housing_labels[["median_income"]], scaled_labels)
+some_new_data = housing_labels[["median_income"]].iloc[:5]
+
+# Model predicts based of off 5 example rows of median_income
+scaled_predictions = model.predict(some_new_data)
+
+# Convert the scaled predictions back into real units (actual house dollar
+# prices)
+predictions = target_scaler.inverse_transform(scaled_predictions)
+
+# A less tedious, more automated way of doing the same thing as above
+model = TransformedTargetRegressor(LinearRegression(),
+                                   transformer=StandardScaler())
+model.fit(housing[["median_income"]], housing_labels)
+predictions = model.predict(some_new_data)
+
+# Transforming - to take your data and reshape/rescale it into a different
+# form that is easier for the model to learn from, without changing what the
+# data actually represents underneath
+
+# In this case, population has a problem: Most districts have small
+# populations, but a few have exceptionally huge populations, stretching out
+# the data distribution unevenly. This lopsided shape is harder for a model
+# to learn patterns form
+
+# To fix this, we take the log of each value, squishing big numbers down a
+# lot more than the small numbers, pulling the bigger population closer to
+# the smaller ones
+
+# inverse_func allows us to undo our changes after our model is done
+# predicting/training using the log values
+
+log_transformer = FunctionTransformer(np.log, inverse_func=np.exp)
+log_pop = log_transformer.transform(housing_labels[["population"]])
+
+# We create a new feature measuring "how close is this house's age to 35
+# years old?" - we turn this raw number into a score
+rbf_transformer = FunctionTransformer(rbf_kernel, kw_args=dict(Y=[[35.]],
+                                                               gamma=0.1))
+age_simil_35 = rbf_transformer.transform(housing[["housing_median_age"]])
