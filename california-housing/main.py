@@ -397,8 +397,8 @@ scaled_labels = target_scaler.fit_transform(housing_labels.to_frame())
 # Train a plain linear regression model, where we are predicting the scaled
 # labels
 model = LinearRegression()
-model.fit(housing_labels[["median_income"]], scaled_labels)
-some_new_data = housing_labels[["median_income"]].iloc[:5]
+model.fit(housing[["median_income"]], scaled_labels)
+some_new_data = housing[["median_income"]].iloc[:5]
 
 # Model predicts based of off 5 example rows of median_income
 scaled_predictions = model.predict(some_new_data)
@@ -430,10 +430,23 @@ predictions = model.predict(some_new_data)
 # predicting/training using the log values
 
 log_transformer = FunctionTransformer(np.log, inverse_func=np.exp)
-log_pop = log_transformer.transform(housing_labels[["population"]])
+log_pop = log_transformer.transform(housing[["population"]])
 
 # We create a new feature measuring "how close is this house's age to 35
 # years old?" - we turn this raw number into a score
 rbf_transformer = FunctionTransformer(rbf_kernel, kw_args=dict(Y=[[35.]],
                                                                gamma=0.1))
 age_simil_35 = rbf_transformer.transform(housing[["housing_median_age"]])
+
+# Instead of asking how close a house age is to 35, we are now asking how
+# close is the house's location to San Fransisco
+sf_coords = 37.7749, -122.41
+sf_transformer = FunctionTransformer(rbf_kernel, kw_args=dict(Y=[sf_coords],
+                                                              gamma=0.1))
+sf_simil = sf_transformer.transform(housing[["latitude", "longitude"]])
+
+# This creates a ratio between 2 features (e.g. rooms per household)
+ratio_transformer = FunctionTransformer(lambda X: X[:, [0]] / X[:, [1]])
+ratio_transformer.transform(np.array([[1., 2.], [3., 4.]]))
+
+print(ratio_transformer)
