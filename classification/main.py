@@ -39,6 +39,43 @@ from sklearn.dummy import DummyClassifier
 
 from sklearn.model_selection import cross_val_predict
 
+# A confusion matrix is a table showing exactly what your model got right and
+# what it mixed up; not just how many it got right overall but which things
+# it confused with which. For example, it shows how many 5s were correctly
+# classified as 5s and how many were incorrectly classified
+from sklearn.metrics import confusion_matrix
+
+# The two tools below measure how good our model's predictions are
+# precision_score measures the percentage of accurate predictions made
+# recall_score - of everything that was correct, how much did the model
+# predict correctly
+
+# There is a trade-off to this. If you increase precision (meaning that you
+# increase the amount of accurate predictions you make), that will reduce the
+# recall (the amount of correct answers that were predicted) and vice versa
+
+from sklearn.metrics import precision_score, recall_score
+
+# There is a more nice way of combining precision and recall scores into a
+# single metric called the f1 score. higher f1 score = higher precision AND
+# recall scores
+from sklearn.metrics import f1_score
+
+# This provides a graph that shows us precision and recall scores at each
+# threshold. This is useful as it allows us to identify a threshold that
+# meets our requirements for what we want precision and recall scores to look
+# like
+from sklearn.metrics import precision_recall_curve
+
+# The Receiver Operating Characteristic (ROC) curve shows how well your model
+# tells positives from negatives by plotting how many real digits (e.g. 5) it
+# catches (true positive rate) against how many false alarms it makes (false
+# positive rate) as you change the threshold.
+from sklearn.metrics import roc_curve
+
+# This imports AUC, or the area under the curve.
+from sklearn.metrics import roc_auc_score
+
 # Function for rendering images of digits
 def plot_digit(image_data):
     # We resize the image to be 28x28 pixels
@@ -76,6 +113,9 @@ X_train, X_test, y_train, y_test = X[:60000], X[60000:], y[:60000], y[60000:]
 # We are now going to create something called a binary classifier. This
 # allows us to solely identify one digit. In this case, the classifier
 # distinguishes between two categories (or classes): 5, and non-5
+
+# These are arrays containing true and false values to identify whether or
+# not a number is 5
 y_train_5 = (y_train == '5')
 y_test_5 = (y_test == '5')
 
@@ -105,4 +145,123 @@ print(any(dummy_clf.predict(X_train)))
 # right about 90% of the time
 print(cross_val_score(dummy_clf, X_train, y_train_5, cv=3, scoring="accuracy"))
 
+# This outputs predictions made on each fold of data
 y_train_pred = cross_val_predict(sgd_clf, X_train, y_train_5, cv=3)
+
+# Prints the matrix. Each row represents a class (e.g. 5 and not-5) while
+# each column represents a predicted class. First row are non-5 images. 53,
+# 982 were correctly classified as non-5s (true negatives) while 687 were
+# wrongly classified as 5s (false positives)
+# Second row is for 5s. 1891 were wrongly classified as non-5s while 3530
+# images were correctly classified as 5s
+cm = confusion_matrix(y_train_5, y_train_pred)
+print(cm)
+
+# Because we fed the model the labels for the data (disguised as
+# predictions), this causes the confusion_matrix to compare the predictions
+# against the actual answers (both y_train_5 and y_train_perfect_predictions
+# are the same), you would get a perfect confusion matrix
+y_train_perfect_predictions = y_train_5 # Pretend we reached perfection
+print(confusion_matrix(y_train_5, y_train_perfect_predictions))
+
+# Prints precision and recall scores of our data. You would think based on
+# our perfect confusion matrix that it would output higher values but, it did
+# not
+print(precision_score(y_train_5, y_train_pred)) # 83.7%
+print(recall_score(y_train_5, y_train_pred)) # 65.1%
+
+# Prints the f1 score
+print(f1_score(y_train_5, y_train_pred)) # 73.3%
+
+# We are now looking under the hood of what happens in a regression function
+# Instead of asking a model for a direction yes/no prediction, this asks for
+# the raw score it computes internally for some_digit. Higher score = more
+# confident the digit is a 5; lower score = lower confidence
+y_scores = sgd_clf.decision_function([some_digit])
+print(y_scores) # 2164.22 - pretty high
+
+# We set up a cut-off point, or threshold. If the score computed above is
+# less than 0, it is not 5; if higher than 0, is 5
+threshold = 0
+y_some_digit_pred = (y_scores > threshold)
+print(y_some_digit_pred) # Prints True since 2164 > 0
+
+# If we raise the threshold, we decrease the recall_score as the barrier for
+# entry for being classified as 5 is a lot higher
+threshold = 3000
+y_some_digit_pred = (y_scores > threshold)
+print(y_some_digit_pred) # Prints True since 2164 > 0
+
+# Returns raw confidence scores of predictions
+y_scores = cross_val_predict(sgd_clf, X_train, y_train_5, cv=3,
+                             method="decision_function")
+
+# We feed the true labels and raw scores into the precision_recall_curve
+precisions, recalls, thresholds = precision_recall_curve(y_train_5, y_scores)
+
+# Plots precision (y-axis) against threshold (x-axis) using a blue dashed
+# line (b--)
+plt.plot(thresholds, precisions[:-1], "b--", label="Precision", linewidth=2)
+
+# Plots recall (y-axis) against threshold (x-axis) using a green solid line (
+# g-)
+plt.plot(thresholds, recalls[:-1], "g-", label="Recall", linewidth=2)
+
+# Draws a vertical black line at our chosen threshold value (3000)
+plt.vlines(threshold, 0, 1.0, "k", "dotted", label="Threshold")
+
+plt.show()
+
+# Another way of getting a better understanding of the precision/recall
+# trade-off is directly plotting the two against each other
+plt.plot(recalls, precisions, linewidth=2, label="Precision/Recall curve")
+
+plt.show()
+
+# Let's imagine we want to identify the exact threshold needed to ensure our
+# model has a 90% precision score
+
+# The line below checks every value in the precisions array, producing a
+# True/False value depending on whether or not the precision is 90% or higher
+# argmax() - finds the index of the first True in that array, then stops
+# searching
+idx_for_90_precision = (precisions >= 0.90).argmax()
+
+# We find the threshold required by passing in the first True index into the
+# thresholds array
+threshold_for_90_precision = thresholds[idx_for_90_precision]
+
+print(threshold_for_90_precision) # 3370.019499144185
+
+# Now we can make all our predictions based on 90% precision
+y_train_pred_90 = (y_scores >= threshold_for_90_precision)
+
+print(precision_score(y_train_5, y_train_pred_90)) # 0.90
+recall_at_90_precision = recall_score(y_train_5, y_train_pred_90)
+print(recall_at_90_precision) # 0.48
+
+# Feed in true labels and raw scores and receive false positive rate (FPR),
+# true positive rate (TPR) and the thresholds that produce each pair. Each of
+# the three are represented by arrays
+fpr, tpr, thresholds = roc_curve(y_train_5, y_scores)
+
+# We know our 90% precision threshold. This finds where that same threshold
+# resides on the ROC curve's own threshold list
+idx_for_threshold_at_90 = (thresholds <= threshold_for_90_precision).argmax()
+
+# Using the index from above to pull out the exact TPR (recall) and FPR
+# values that correspond to the 90% precision threshold
+tpr_90, fpr_90 = tpr[idx_for_threshold_at_90], fpr[idx_for_threshold_at_90]
+
+# Plots full ROC curve - FPR on x-axis, TPR on y-axis
+plt.plot(fpr, tpr, linewidth=2, label="ROC curve")
+
+# Plots the diagonal reference line, representing a random/useless
+# classifier's curve, as it represents a baseline
+plt.plot([0, 1], [0, 1], "k:", label="Random classifier's ROC curve")
+
+# Plots a single black dot ("ko") at the exact point on the curve
+# corresponding with the 90% precision threshold
+plt.plot([fpr_90], [tpr_90], "ko", label="Threshold for 90% precision")
+
+plt.show()
