@@ -22,6 +22,23 @@ from sklearn.linear_model import SGDClassifier
 # cross_val_score runs cross-validation for us and gives back the accuracy
 from sklearn.model_selection import cross_val_score
 
+# This is a fake "do-nothing-smart" model scikit learn offers as a baseline
+# model to compare to. It ignores the feature inputs entirely and makes
+# predictions using a dumb strategy. We can determine how accurate the SGD
+# classfier is compared to the dummy classifier
+
+from sklearn.dummy import DummyClassifier
+
+# Cross validation splits your training data into several chunks (folds). It
+# trains the model on some folds and uses the rest for testing, then repeats
+# this process while excluding a different chunk each iteration. It then
+# averages out the results of predictions in terms of their accuracies
+
+# cross_val_predict tell us what the model predicted for each instance by
+# providing a full array of predictions
+
+from sklearn.model_selection import cross_val_predict
+
 # Function for rendering images of digits
 def plot_digit(image_data):
     # We resize the image to be 28x28 pixels
@@ -77,3 +94,15 @@ print(sgd_clf.predict([some_digit]))
 
 # We consistently have at least 95% accuracy, which is good!
 print(cross_val_score(sgd_clf, X_train, y_train_5, cv=3, scoring="accuracy"))
+
+# We are running our dummy classifier
+dummy_clf = DummyClassifier()
+dummy_clf.fit(X_train, y_train_5)
+print(any(dummy_clf.predict(X_train)))
+
+# Is right about 90% of the time! This is really because about 10% of the
+# images are 5s, so if you always guess that an image is not a 5, you will be
+# right about 90% of the time
+print(cross_val_score(dummy_clf, X_train, y_train_5, cv=3, scoring="accuracy"))
+
+y_train_pred = cross_val_predict(sgd_clf, X_train, y_train_5, cv=3)
