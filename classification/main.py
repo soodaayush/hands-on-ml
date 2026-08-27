@@ -73,8 +73,21 @@ from sklearn.metrics import precision_recall_curve
 # positive rate) as you change the threshold.
 from sklearn.metrics import roc_curve
 
-# This imports AUC, or the area under the curve.
+# This imports AUC, or the area under the curve. A perfect classifier will
+# have a ROC AUC equal to 1, whereas a purely random classifier will have ROC
+# AUC equal to 0.5
 from sklearn.metrics import roc_auc_score
+
+# Random Forest builds lots of decision trees. Decision Trees are an
+# algorithm a model uses by asking a series of yes/no questions about our
+# features, one after the other like a flowchart until it lands on the final
+# answer on the bottom (e.g. is grid position < 3, is constructor Red
+# Bull/Ferrari/Mercedes -> predict podium or not)
+
+# A Random Forest builds many different decision trees, each trained on
+# a slightly different random slice of the data, and has them all vote on the
+# final prediction. Majority wins for classification.
+from sklearn.ensemble import RandomForestClassifier
 
 # Function for rendering images of digits
 def plot_digit(image_data):
@@ -263,5 +276,29 @@ plt.plot([0, 1], [0, 1], "k:", label="Random classifier's ROC curve")
 # Plots a single black dot ("ko") at the exact point on the curve
 # corresponding with the 90% precision threshold
 plt.plot([fpr_90], [tpr_90], "ko", label="Threshold for 90% precision")
+
+plt.show()
+
+print(roc_auc_score(y_train_5, y_scores)) # 0.96
+
+forest_clf = RandomForestClassifier(random_state=42)
+
+# Instead of returning a raw decision score like decision_function,
+# this returns probabilities of each digit belonging to 5 or non-5
+y_probas_forest = cross_val_predict(forest_clf, X_train, y_train_5, cv=3,
+                                    method="predict_proba")
+
+# Prints probability results for the first two instances
+# The model predicts that the first image is positive with 89% probability,
+# and it predicts that the second image is negative with 99% probability
+print(y_probas_forest[:2])
+
+y_scores_forest = y_probas_forest[:, 1]
+precisions_forest, recalls_forest, thresholds_forest = (
+    precision_recall_curve(y_train_5, y_probas_forest))
+
+plt.plot(recalls_forest, precisions_forest, "b-", linewidth=2, label="Random "
+                                                                     "Forest")
+plt.plot(recalls, precisions, "--", linewidth=2, label="SGD")
 
 plt.show()
