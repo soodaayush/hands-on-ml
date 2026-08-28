@@ -89,6 +89,38 @@ from sklearn.metrics import roc_auc_score
 # final prediction. Majority wins for classification.
 from sklearn.ensemble import RandomForestClassifier
 
+# A Support Vector Classifier (SVC) tries to draw the widest gap between
+# "num" and "not num" digit images, using only the closest, most borderline
+# examples to decide where that boundary goes. Example would be SVC using a 5
+# that looks like a 3 and vice versa, to decide where to draw the "5 vs.
+# not-5" boundary, ignoring clean, obvious examples entirely
+
+# Number of predictions = (N + (N-1))/2
+# N = 10
+
+from sklearn.svm import SVC
+
+# A different way of classifying numbers
+# Instead of training a classifier for every pair of classes (e.g. 1 vs.
+# non-1), One Vs. Rest (OvR) trains just one classifier per class, where each
+# one answers the question: "is this a 5, or is it anything else?"
+
+from sklearn.multiclass import OneVsRestClassifier
+
+# StandardScaler rescales your features so they're centered around 0 with a
+# similar spread. This helps many models (like SGD) train better,
+# since features on wildly different scales can otherwise confuse the
+# learning process
+
+from sklearn.preprocessing import StandardScaler
+
+# Since we are now dealing with 10 classes rather than 2 (remember binary
+# classifier), confusion matrices will look a lot more complicated. An easier
+# way of looking at it will be to use the confusion matrix display, a more
+# visual way of looking at a confusion matrix
+
+from sklearn.metrics import ConfusionMatrixDisplay
+
 # Function for rendering images of digits
 def plot_digit(image_data):
     # We resize the image to be 28x28 pixels
@@ -293,12 +325,95 @@ y_probas_forest = cross_val_predict(forest_clf, X_train, y_train_5, cv=3,
 # and it predicts that the second image is negative with 99% probability
 print(y_probas_forest[:2])
 
+# y_probas_forest has two columns: probability of "not 5" (column 0) and
+# probability of "5" (column 1). This just grabs column 1, since that is the
+# score we want to build a curve from
 y_scores_forest = y_probas_forest[:, 1]
-precisions_forest, recalls_forest, thresholds_forest = (
-    precision_recall_curve(y_train_5, y_probas_forest))
 
+# This computes precision/recall scores across all thresholds, similar to
+# what we did with SGD
+precisions_forest, recalls_forest, thresholds_forest = (
+    precision_recall_curve(y_train_5, y_scores_forest))
+
+# Plots both recall and precision curves; recall on x-axis and precision on
+# y-axis
+# Solid line - Random Forest
+# Dashed line - SGD
 plt.plot(recalls_forest, precisions_forest, "b-", linewidth=2, label="Random "
                                                                      "Forest")
 plt.plot(recalls, precisions, "--", linewidth=2, label="SGD")
+plt.legend()
 
+# When we render the graph, it is obvious that Random Forest is immensely
+# better than SGD in terms of having higher precision and recall scores
+plt.show()
+
+# We trained the SVM using the original target classes from 0 to 9 (y_train)
+# instead of the 5 vs. the rest target classes (y_train_5). Since there are
+# 10 classes (now more than 2), scikit learn uses OVO to train 45 binary
+# classifiers. We can now make predictions on digits!
+svm_clf = SVC(random_state=42)
+svm_clf.fit(X_train[:2000], y_train[:2000])
+
+# Instead of one model choosing directly among all 10 digits, Scikit-Learn
+# trains 45 mini-classifiers, each an expert at telling apart just one specific
+# pair of digits (like "3 or 7?"). A new digit gets judged by all 45 of them,
+# and whichever digit wins the most of these one-on-one matchups becomes the
+# final prediction.
+print(svm_clf.predict([some_digit])) # Prints 5, since the digit is 5
+
+some_digit_scores = svm_clf.decision_function([some_digit])
+
+# Prints the scores per each instance (10 scores per instance): one per
+# class (0-9). Each class gets a score equal to the number of duels won plus or
+# minus a small tweak to break ties
+
+# The highest score is 9.3, corresponding to class 5
+print(some_digit_scores.round(2))
+
+class_id = some_digit_scores.argmax()
+print(class_id) # Prints 5
+
+print(svm_clf.classes_) # Prints all classes (e.g. 0, 1, 2, etc.)
+
+# Prints the class at the fifth index,  which happens to be 5
+print(svm_clf.classes_[class_id])
+
+# Training a OvR Classifier
+
+ovr_clf = OneVsRestClassifier(SVC(random_state=42))
+ovr_clf.fit(X_train[:2000], y_train[:2000])
+
+print(ovr_clf.predict([some_digit])) # Prints 5
+
+# estimators_ - gives you access to list of individual classifiers that OvR
+# is trained on under the hood
+print(len(ovr_clf.estimators_))
+
+# Training a multi-class SGD Classifier
+sgd_clf = SGDClassifier(random_state=42)
+sgd_clf.fit(X_train, y_train)
+print(sgd_clf.predict([some_digit])) # Prints 3, which is incorrect
+
+# You can see here that the classifier is not very confident in its
+# predictions: almost all scores are very negative, while class 3 has a
+# positive score and 5 has a negative score
+print(sgd_clf.decision_function([some_digit]).round())
+
+# Despite that, it gets around 85.8% accuracy on all test folds
+print(cross_val_score(sgd_clf, X_train, y_train, cv=3, scoring="accuracy"))
+
+# Training StandardScaler
+
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train.astype("float64"))
+
+# As a result of scaling, accuracy has increased to 89.1%
+print(cross_val_score(sgd_clf, X_train_scaled, y_train, cv=3,
+                      scoring="accuracy"))
+
+# Visualizing the confusion matrix
+
+y_train_pred = cross_val_predict(sgd_clf, X_train_scaled, y_train, cv=3)
+ConfusionMatrixDisplay.from_predictions(y_train, y_train_pred)
 plt.show()
