@@ -3,6 +3,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from PIL import Image
 from numpy import asarray
+import cv2 as cv
 
 from sklearn.svm import SVC
 
@@ -30,19 +31,26 @@ if st.session_state.clicked:
     bytes_data = uploaded_file.getvalue()
 
     # Convert image into a grayscale image
-    grayscale = Image.open(uploaded_file).convert('L')
+    uploaded_file = Image.open(uploaded_file).convert('L')
 
     # Resize to a 28x28 px image
-    resized_img = grayscale.resize((28, 28))
+    resized_img = uploaded_file.resize((28, 28))
+    st.image(resized_img)
 
     # Converts image into a NumPy array, where each number is a pixel
     a = asarray(resized_img)
 
+    ret2, th2 = cv.threshold(a, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+
     # Inverts colors
-    a = 255 - a
+    # th2 = 255 - th2
 
     # Turns 2D 28x28 grid into 1D array containing 784 values
-    a = a.flatten()
+    th2 = th2.flatten()
+    print(th2)
+    plot_digit(th2)
+
+    # a = remove(a)
 
     # We are importing the MNIST dataseet, a set of 70,000 small images of digits
     # handwritten by high school students and employees of the US Census Bureau
@@ -73,4 +81,4 @@ if st.session_state.clicked:
     # and whichever digit wins the most of these one-on-one matchups becomes the
     # final prediction.
 
-    st.write(svm_clf.predict([a]))
+    st.write(svm_clf.predict([th2]))

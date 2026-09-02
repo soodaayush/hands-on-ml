@@ -1,5 +1,6 @@
 from sklearn.datasets import fetch_openml
 import matplotlib.pyplot as plt
+import numpy as np
 
 # This imports a Stochastic Gradient Descent classifier
 
@@ -136,15 +137,15 @@ mnist = fetch_openml("mnist_784", as_frame=False)
 
 # Features and labels are being defined
 X, y = mnist.data, mnist.target
-print(X)
+# print(X)
 # Prints 70,000 images, each containing 784 features
-print(X.shape)
+# print(X.shape)
 # Contains labels (e.g. 1, 2, 3, 4, 5)
-print(y)
+# print(y)
 # Prints number of labels (70,000)
-print(y.shape)
+# print(y.shape)
 
-some_digit = X[0] # Binary representation of 5
+some_digit = X[15] # Binary representation of 5
 print(y[0]) # Prints 5
 plot_digit(some_digit)
 plt.show() # Renders the image
@@ -162,6 +163,9 @@ X_train, X_test, y_train, y_test = X[:60000], X[60000:], y[:60000], y[60000:]
 # These are arrays containing true and false values to identify whether or
 # not a number is 5
 y_train_5 = (y_train == '5')
+y_train_7 = (y_train == '7')
+print(y_train_7)
+print(np.where(y_train_7))
 y_test_5 = (y_test == '5')
 
 # We initialze our SGD classifier; remember that random_state ensures that a
