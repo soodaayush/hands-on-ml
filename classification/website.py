@@ -1,11 +1,9 @@
-from sklearn.datasets import fetch_openml
 import streamlit as st
 import matplotlib.pyplot as plt
 from PIL import Image
-from numpy import asarray
+from numpy import asarray, ones, uint8
 import cv2 as cv
-
-from sklearn.svm import SVC
+import pickle
 
 if "clicked" not in st.session_state:
     st.session_state.clicked = False
@@ -21,6 +19,8 @@ def plot_digit(image_data):
     # We disable the axis
     plt.axis("off")
 
+    return plt
+
 st.title("Hello World!")
 
 uploaded_file = st.file_uploader("Choose an image...")
@@ -35,50 +35,37 @@ if st.session_state.clicked:
 
     # Resize to a 28x28 px image
     resized_img = uploaded_file.resize((28, 28))
-    st.image(resized_img)
 
     # Converts image into a NumPy array, where each number is a pixel
     a = asarray(resized_img)
 
+    # Turns our image from greyscale to black and white
+    # ret2 - threshold needed to produce black or white
+    # th2 - image binary
     ret2, th2 = cv.threshold(a, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
 
     # Inverts colors
-    # th2 = 255 - th2
+    th2 = 255 - th2
+
+    dist = cv.distanceTransform(th2, cv.DIST_L2, 5)
+    max = cv.minMaxLoc(dist)
+    stroke_width = max * 2
+
+    st.write(max)
+
+    kernel = ones((2, 2), uint8)
+
+    th2 = cv.dilate(th2, kernel, anchor=(0, 0), iterations=1)
+
+    # Displays an image of the adjusted binary
+    plt = plot_digit(th2)
+    st.pyplot(plt)
 
     # Turns 2D 28x28 grid into 1D array containing 784 values
     th2 = th2.flatten()
-    print(th2)
     plot_digit(th2)
 
-    # a = remove(a)
-
-    # We are importing the MNIST dataseet, a set of 70,000 small images of digits
-    # handwritten by high school students and employees of the US Census Bureau
-    mnist = fetch_openml("mnist_784", as_frame=False)
-
-    # Features and labels are being defined
-    X, y = mnist.data, mnist.target
-
-    digit = 20
-
-    # Since we are machine learning engineers, we must split our data into a
-    # training and testing set. Fortunately, it is already organized for us,
-    # as the training set is the first 60,000 images and the test set is the last
-    # 10,000 images
-    X_train, X_test, y_train, y_test = X[:60000], X[60000:], y[:60000], y[
-        60000:]
-
-    # We trained the SVM using the original target classes from 0 to 9 (y_train)
-    # instead of the 5 vs. the rest target classes (y_train_5). Since there are
-    # 10 classes (now more than 2), scikit learn uses OVO to train 45 binary
-    # classifiers. We can now make predictions on digits!
-    svm_clf = SVC(random_state=42)
-    svm_clf.fit(X_train[:60000], y_train[:60000])
-
-    # Instead of one model choosing directly among all 10 digits, Scikit-Learn
-    # trains 45 mini-classifiers, each an expert at telling apart just one specific
-    # pair of digits (like "3 or 7?"). A new digit gets judged by all 45 of them,
-    # and whichever digit wins the most of these one-on-one matchups becomes the
-    # final prediction.
+    with open("model.pkl", "rb") as f:
+        svm_clf = pickle.load(f)
 
     st.write(svm_clf.predict([th2]))
